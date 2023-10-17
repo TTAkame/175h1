@@ -200,15 +200,17 @@ class SceneNode {
      * @returns {mat4} The updated compound world transformation of this node
      */
     calculateWorldTransformation() {
-
-        throw '"SceneNode.calculateWorldTransformation" not implemented'
-        let world = null
-
-        // TODO: Get this node's transformation hierarchy using 'getTransformationHierarchy'
-        // TODO: Create the compound world transformation from the hierarchy of transformations
-
-        return world
+        let world = mat4.clone(this.transformation);  // Start with the local transformation
+    
+        let currentParent = this.parent;
+        while (currentParent !== null) {
+            world = mat4.multiply(mat4.create(), currentParent.transformation, world);  // Pre-multiply by parent's transformation
+            currentParent = currentParent.parent;  // Move up the scenegraph hierarchy
+        }
+    
+        return world;
     }
+    
 
     /**
      * Gets a list of transformations in this node's branch of the tree
