@@ -1,4 +1,25 @@
-load() {
+import { loadExternalFile } from './js/utils/utils.js'
+
+/**
+ * A class to load OBJ files from disk
+ */
+class OBJLoader {
+
+    /**
+     * Constructs the loader
+     * 
+     * @param {String} filename The full path to the model OBJ file on disk
+     */
+    constructor(filename) {
+        this.filename = filename
+    }
+
+    /**
+     * Loads the file from disk and parses the geometry
+     * 
+     * @returns {[Array<Number>, Array<Number>]} A tuple / list containing 1) the list of vertices and 2) the list of triangle indices
+     */
+    load() {
         // Load the file's contents
         let contents = loadExternalFile(this.filename);
 
@@ -47,4 +68,8 @@ load() {
         let [a, b, c, d] = face;
         return [a, b, c, a, c, d];
     }
+}
+
+export {
+    OBJLoader
 }
