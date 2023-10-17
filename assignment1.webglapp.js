@@ -22,8 +22,8 @@ class WebGlApp
      * @param {Shader} shader The shader to be used to draw the object
      * @param {AppState} app_state The state of the UI
      */
-    constructor( gl, shader, app_state )
-    {
+    constructor( gl, shader, app_state ){
+    
         // Set GL flags
         this.setGlFlags( gl )
 
@@ -54,14 +54,16 @@ class WebGlApp
 
         // Forward, Right, and Up are initialized based on Eye and Center
         this.updateViewSpaceVectors()
-        this.view = //TODO: Create a view matrix using glMatrix with the values defined above
+        this.view = mat4.lookAt(mat4.create(), this.eye, this.center, this.up);
+ //TODO: Create a view matrix using glMatrix with the values defined above
 
         // Create the projection matrix
         // TODO: Create values the projection matrix
         // TODO: The projection should have a vertical field of view of 60
         // TODO: It should have an 16:9 aspect rotation
         // TODO: Define appropriate values for the near and far plane distance so that the whole scene is visible
-        this.projection = // TODO: Create a projection matrix using glMatrix with the values defined above 
+        this.projection = mat4.perspective(mat4.create(), deg2rad(60), 16 / 9, 0.1, 100);
+ // TODO: Create a projection matrix using glMatrix with the values defined above 
 
         // Use the shader's setUniform4x4f function to pass the matrices
         this.shader.use()
@@ -121,12 +123,16 @@ class WebGlApp
     update( gl, app_state, delta_time ) 
     {
         // Draw Mode
-        throw '"WebGlApp.update" not complete'
+        //throw '"WebGlApp.update" not complete'
 
         if (this.scene != null) {
-            // TODO: Get the draw mode (gl.TRIANGLES, gl.POINTS) based on the Draw Mode UI state
-            // TODO: Iterate through this.scene's SceneNodes (there's a getter for that)
-            // TODO: Use ModelNode.setDrawMode to change the object's draw mode on model nodes only
+            let drawMode = app_state.getState('Draw Mode') === 'Points' ? gl.POINTS : gl.TRIANGLES;
+            let sceneNodes = this.scene.getNodes();
+            for (let node of sceneNodes) {
+                if (node instanceof ModelNode) {
+                    node.setDrawMode(drawMode);
+                }
+            }
         }
 
         // Control
@@ -171,53 +177,41 @@ class WebGlApp
 
         // Control - Zoom
         if (Input.isMouseDown(2)) {
-            throw '"WebGlApp.updateCamera" not complete'
-
-            // TODO: Implement the zoom feature
-            // TODO: Transform this.eye - move it closer to this.center by a certain amount along the Forward axis
-            // TODO: Use Input.getMouseDy() and delta_time to determine the amount of change
-
-            // Set dirty flag to trigger view matrix updates
-            view_dirty = true
+            if (Input.isMouseDown(2)) {
+                let zoomAmount = Input.getMouseDy() * delta_time * 0.1;
+                vec3.lerp(this.eye, this.eye, this.center, zoomAmount);
+                view_dirty = true;
+            }
         }
-
         // Control - Rotate
         if (Input.isMouseDown(0) && !Input.isKeyDown(' ')) {
-            throw '"WebGlApp.updateCamera" not complete'
-
-            // TODO: Implement the arcball rotation
-            // TODO: Transform this.eye - rotate it around the up axis first, then around the right axis
-            // TODO: Use Input.getMouseDx(), Input.getMouseDy(), and delta_time to determine the amount of change
-
-            // Set dirty flag to trigger view matrix updates
-            view_dirty = true
+            let angleX = deg2rad(Input.getMouseDx()) * delta_time;
+            let angleY = deg2rad(Input.getMouseDy()) * delta_time;
+            let rotationMatrix = mat4.create();
+            mat4.rotate(rotationMatrix, rotationMatrix, angleX, this.up);
+            mat4.rotate(rotationMatrix, rotationMatrix, angleY, this.right);
+            vec3.transformMat4(this.eye, this.eye, rotationMatrix);
+            view_dirty = true;
         }
 
         // Control - Pan
         if (Input.isMouseDown(1) || (Input.isMouseDown(0) && Input.isKeyDown(' '))) {
-            throw '"WebGlApp.updateCamera" not complete'
-
-            // TODO: Implement the pan interaction
-            // TODO: Transform this.eye and this.center to move the camera and the center of attention at the same time
-            // TODO: For this, use the view-aligned up and right axes and use those to determine the direction of translation
-            // TODO: Use Input.getMouseDx(), Input.getMouseDy(), and delta_time to determine the amount of change
-
-            // Set dirty flag to trigger view matrix updates
-            view_dirty = true
+            let panAmountX = Input.getMouseDx() * delta_time * 0.1;
+            let panAmountY = Input.getMouseDy() * delta_time * 0.1;
+            vec3.add(this.eye, this.eye, vec3.scale(vec3.create(), this.right, panAmountX));
+            vec3.add(this.center, this.center, vec3.scale(vec3.create(), this.right, panAmountX));
+            vec3.add(this.eye, this.eye, vec3.scale(vec3.create(), this.up, panAmountY));
+            vec3.add(this.center, this.center, vec3.scale(vec3.create(), this.up, panAmountY));
+            view_dirty = true;
         }
 
         // Update view matrix if needed
         if (view_dirty) {
-            throw '"WebGlApp.updateCamera" not complete'
-
-            // Update Forward, Right, and Up vectors
-            this.updateViewSpaceVectors()
-
-            // TODO: Recompute this.view based on updated values for this.eye (and this.center)
-            this.view = null
-
-            // TODO: Update the view matrix in the shader using setUniform4x4f and the new this.view
-            // TODO: Don't forget to 'use' the shader first to set it active in WebGL state
+            this.updateViewSpaceVectors();
+            this.view = mat4.lookAt(mat4.create(), this.eye, this.center, this.up);
+            this.shader.use();
+            this.shader.setUniform4x4f('u_v', this.view);
+            this.shader.unuse();
         }
     }
 
@@ -241,69 +235,40 @@ class WebGlApp
 
         // Control - Scale
         if (Input.isMouseDown(2)) {
-            throw '"WebGlApp.updateSceneNode" not complete'
-
-            // TODO: Create a scaling matrix to scale the node
-            // TODO: Use Input.getMouseDy() and delta_time to determine the amount of change
-            // TODO: Store the matrix in variable 'scale'
-
-
-            // Set dirty flag to trigger model matrix updates
-            node_dirty = true
+            let scaleFactor = 1 + Input.getMouseDy() * delta_time * 0.1;
+            mat4.scale(scale, mat4.create(), [scaleFactor, scaleFactor, scaleFactor]);
+            node_dirty = true;
         }
+    
 
-        // Control - Rotate
+    // Control - Rotate
         if (Input.isMouseDown(0) && !Input.isKeyDown(' ')) {
-            throw '"WebGlApp.updateSceneNode" not complete'
-
-            // TODO: Create a rotation matrix that rotates the node around the view-aligned axes
-            // TODO: Use Input.getMouseDx(), Input.getMouseDy(), and delta_time to determine the amount of change
-            // TODO: Store the matrix in variable 'rotation'
-
-            // Set dirty flag to trigger model matrix updates
-            node_dirty = true
+            let angleX = deg2rad(Input.getMouseDx()) * delta_time;
+            let angleY = deg2rad(Input.getMouseDy()) * delta_time;
+            mat4.rotate(rotation, mat4.create(), angleX, this.up);
+            mat4.rotate(rotation, rotation, angleY, this.right);
+            node_dirty = true;
         }
 
-        // Control - Translate
+    // Control - Translate
         if (Input.isMouseDown(1) || (Input.isMouseDown(0) && Input.isKeyDown(' '))) {
-            throw '"WebGlApp.updateSceneNode" not complete'
-
-            // TODO: Create a translation matrix that translates the node along the view-aligned axes
-            // TODO: Use Input.getMouseDx(), Input.getMouseDy(), and delta_time to determine the amount of change
-            // TODO: Store the matrix in variable 'translation'
-
-            // Set dirty flag to trigger model matrix updates
-            node_dirty = true
+            let translationVector = vec3.create();
+            vec3.add(translationVector, translationVector, vec3.scale(vec3.create(), this.right, Input.getMouseDx() * delta_time * 0.1));
+            vec3.add(translationVector, translationVector, vec3.scale(vec3.create(), this.up, -Input.getMouseDy() * delta_time * 0.1));
+            mat4.translate(translation, mat4.create(), translationVector);
+            node_dirty = true;
         }
 
-
-        // Update node transformation if needed
+    // Update node transformation if needed
         if (node_dirty) {
-            throw '"WebGlApp.updateSceneNode" not complete'
-
-            // TODO: Apply the transformations (rotate, scale, translate) to the node's local transformation
-            // TODO: The node's current transformation needs to stay intact, so you need to add your transformations to the existing one
-            // TODO: Order of multiplication matters. Visualize the transformation that are applied to the node and in which order and how this order affects the node's final configuration
-            // TODO: Transformations should be relative to teh current view (i.e. dragging left should translate the node to the left relative to the current view on the object - this is the most intuitive kind of movement and used in many 3D applications)
-            // TODO: For this, you will need the node's local and world (!) matrices and they might need to be modified.
-
-            // Get the node's world transformation and clone it to leave the original values intact in case we change it here
-            let world_transformation = mat4.clone(node.getWorldTransformation())
-
-
-            // Get the node's local transformation that we modify
-            // Do not clone it since we WANT to modify this one
-            let transformation = node.getTransformation()
-
-            
-            // TODO: Make any modifications or adaptions to the world matrix here and create any other needed variables
-
-            // TODO: Apply the transformations (rotate, scale, translate) and any helper transformations in the correct order to 'transformation'
-
-            // Update the node's transformation
-            node.setTransformation(transformation)
+            let newTransformation = mat4.multiply(mat4.create(), translation, node.getTransformation());
+            newTransformation = mat4.multiply(mat4.create(), rotation, newTransformation);
+            newTransformation = mat4.multiply(mat4.create(), scale, newTransformation);
+            node.setTransformation(newTransformation);
         }
+
     }
+    
 
     /**
      * Main render loop which sets up the active viewport (i.e. the area of the canvas we draw to)
